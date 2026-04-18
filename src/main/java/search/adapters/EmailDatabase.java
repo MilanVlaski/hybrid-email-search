@@ -19,14 +19,23 @@ public class EmailDatabase {
     public void initialize() {
         try (Connection conn = DriverManager.getConnection(dbUrl); Statement stmt = conn.createStatement()) {
 
-            stmt.execute("CREATE TABLE IF NOT EXISTS emails (" + "id INTEGER PRIMARY KEY AUTOINCREMENT," + "message_id TEXT," + "from_email TEXT," + "from_name TEXT," + "all_recipients TEXT," + "subject TEXT," + "body_content TEXT," + "timestamp_ms INTEGER," + "has_attachments INTEGER," + "labels TEXT" + ")");
+            stmt.execute("""
+                    CREATE TABLE IF NOT EXISTS emails 
+                    (id INTEGER PRIMARY KEY AUTOINCREMENT,message_id TEXT,
+                    from_email TEXT,from_name TEXT,all_recipients TEXT,subject TEXT,
+                    body_content TEXT,timestamp_ms INTEGER,
+                    has_attachments INTEGER,labels TEXT)
+                    """);
         } catch (SQLException e) {
             throw new RuntimeException("Failed to initialize database", e);
         }
     }
 
     public void insertEmails(Iterable<Email> emails) {
-        String sql = "INSERT INTO emails(message_id, from_email, from_name, " + "all_recipients, subject, body_content, timestamp_ms, " + "has_attachments, labels) VALUES(?,?,?,?,?,?,?,?,?)";
+        String sql = """
+                INSERT INTO emails(message_id, from_email, from_name, all_recipients,
+                                   subject, body_content, timestamp_ms, has_attachments, labels)
+                VALUES(?,?,?,?,?,?,?,?,?)""";
 
         try (Connection conn = DriverManager.getConnection(dbUrl)) {
             conn.setAutoCommit(false);
