@@ -1,3 +1,6 @@
+models
+temp_venv
+venv
 index
 emails.db
 emails.csv

@@ -10,165 +10,264 @@ The `OnnxEmbeddingService` requires two files:
 
 By default, the application uses `MockEmbeddingService` which generates deterministic vectors for testing. This guide helps you switch to real embeddings.
 
-## Quick Start
+## Quick Start (Recommended Model: google/embeddinggemma-300m)
 
-### Option 1: Download Pre-Converted Gemma Model (Recommended)
+The project is designed to work with the `google/embeddinggemma-300m` model, a 300M parameter embedding-optimized version of Google's Gemma. This model provides an excellent balance of quality and speed on CPU.
 
-The easiest approach is to download a pre-converted ONNX model:
+### Step 1: Download the Model and Tokenizer
 
-1. **Download from Hugging Face:**
-   ```bash
-   # Install git-lfs first if you don't have it
-   git lfs install
-   
-   # Download the model
-   git clone https://huggingface.co/kadir/gemma-2b-embedding-onnx
-   cd gemma-2b-embedding-onnx
-   ```
+**Important Prerequisite (Gated Model):**
+The `google/embeddinggemma-300m` model is gated. Before downloading, you must complete these steps in order:
+1. **Create an account:** Sign up or log in at [Hugging Face](https://huggingface.co/).
+2. **Accept the terms:** Visit the model page at [https://huggingface.co/google/embeddinggemma-300m](https://huggingface.co/google/embeddinggemma-300m) and explicitly accept the repository's terms of use.
+3. **Get a key:** Generate an access token at [https://huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) (a "Read" token is sufficient).
+4. **Authenticate:** Run `huggingface-cli login` in your terminal and provide the token, OR export it directly using `export HF_TOKEN="your_token_here"`.
 
-2. **Files you'll get:**
-   - `model.onnx` - The embedding model
-   - `tokenizer.json` - The tokenizer
-   - `config.json` - Model configuration
-
-3. **Move to project directory:**
-   ```bash
-   mkdir -p models
-   cp model.onnx tokenizer.json /path/to/advanced-search/models/
-   ```
-
-### Option 2: Convert Your Own Model
-
-If you want to convert a different model:
-
-#### Step 1: Install Required Tools
+Download the model and tokenizer from Hugging Face:
 
 ```bash
-pip install torch transformers onnx huggingface_hub
+# Create models directory
+mkdir -p models
+
+# Download model (requires Hugging Face CLI - pip install huggingface-hub)
+huggingface-cli download google/embeddinggemma-300m \
+  --local-dir ./models --local-dir-use-symlinks False
 ```
 
-#### Step 2: Choose a Model
-
-Good options for embeddings:
-- `google/gemma-2b` (requires license acceptance)
-- `sentence-transformers/all-MiniLM-L6-v2` (no license needed)
-- `microsoft/DialoGPT-small` (no license needed)
-
-#### Step 3: Convert to ONNX
-
-```python
-from transformers import AutoTokenizer, AutoModel
-import torch
-import onnx
-from pathlib import Path
-
-def convert_to_onnx(model_name, output_dir):
-    """Convert a HuggingFace model to ONNX format"""
-    
-    # Create output directory
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
-    
-    # Load model and tokenizer
-    print(f"Loading {model_name}...")
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModel.from_pretrained(model_name)
-    model.eval()
-    
-    # Save tokenizer
-    tokenizer.save_pretrained(output_dir)
-    
-    # Create dummy input
-    dummy_input = torch.randint(0, tokenizer.vocab_size, (1, 128))
-    
-    # Export to ONNX
-    print("Converting to ONNX...")
-    torch.onnx.export(
-        model,
-        dummy_input,
-        output_path / "model.onnx",
-        input_names=['input_ids'],
-        output_names=['output'],
-        dynamic_axes={
-            'input_ids': {0: 'batch', 1: 'sequence'},
-            'output': {0: 'batch', 1: 'sequence'}
-        },
-        opset_version=14
-    )
-    
-    print(f"Model saved to {output_dir}/model.onnx")
-    print(f"Tokenizer saved to {output_dir}/tokenizer.json")
-
-# Example usage
-convert_to_onnx("sentence-transformers/all-MiniLM-L6-v2", "./models")
-```
-
-## Configuration
-
-### Update Indexing Command
-
-When building the search index, use the ONNX service:
+**Alternative: Using curl (individual files):**
 
 ```bash
-# Instead of (using mock):
+mkdir -p models
+
+# Note: These are Safetensors format files, not ONNX
+# You'll need to convert the model (see "Converting to ONNX" section below)
+curl -L -o models/model.safetensors \
+  "https://huggingface.co/google/embeddinggemma-300m/resolve/main/model.safetensors"
+
+curl -L -o models/tokenizer.json \
+  "https://huggingface.co/google/embeddinggemma-300m/resolve/main/tokenizer.json"
+
+curl -L -o models/config.json \
+  "https://huggingface.co/google/embeddinggemma-300m/resolve/main/config.json"
+```
+
+**Alternative: Manual download from browser:**
+1. Visit: https://huggingface.co/google/embeddinggemma-300m
+2. Download `model.safetensors`, `tokenizer.json`, and `config.json`
+3. Place all files in the `models/` directory
+4. Convert to ONNX using the script below
+
+### Step 2: Convert to ONNX (Required)
+
+The model is distributed in Safetensors format. Convert it to ONNX:
+
+```bash
+# Create and activate a virtual environment (recommended to avoid conflicts)
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install torch transformers onnx optimum[exporters]
+
+# Convert to ONNX
+optimum-cli export onnx \
+  --model google/embeddinggemma-300m \
+  --task feature-extraction \
+  ./models/onnx/
+```
+
+After conversion, you'll have:
+- `models/onnx/model.onnx` - The embedding model
+- `models/onnx/tokenizer.json` - The tokenizer (copied from source)
+- `models/onnx/config.json` - Model configuration
+
+### Step 3: Verify Model Files
+
+Check that the files are present and valid:
+
+```bash
+# Check file sizes (model ~600MB, tokenizer ~1MB)
+ls -lh models/onnx/
+
+# Verify ONNX model
+python3 -c "import onnx; m = onnx.load('models/onnx/model.onnx'); print(f'Opset: {m.opset_import}')"
+```
+
+### Step 4: Update Source Code
+
+Replace `MockEmbeddingService` with `OnnxEmbeddingService` in the action classes:
+
+**Update `IndexEmailsAction.java` line 36:**
+
+```java
+// Change from:
+EmbeddingService embeddingService = new MockEmbeddingService();
+
+// To:
+var embeddingService = new OnnxEmbeddingService(
+    "models/onnx/model.onnx",
+    "models/onnx/tokenizer.json"
+);
+```
+
+**Update `SearchEmailsAction.java` line 25:**
+
+```java
+// Change from:
+EmbeddingService embeddingService = new MockEmbeddingService();
+
+// To:
+var embeddingService = new OnnxEmbeddingService(
+    "models/onnx/model.onnx",
+    "models/onnx/tokenizer.json"
+);
+```
+
+**Note:** Use `var` to preserve access to the `close()` method for resource cleanup, or cast when needed:
+```java
+((OnnxEmbeddingService) embeddingService).close();
+```
+
+### Step 5: Run with Real Embeddings
+
+**Indexing:**
+```bash
 mvn exec:java -Dexec.mainClass="search.usecases.IndexEmailsAction" \
   -Dexec.args="emails.db index"
-
-# Use (with ONNX):
-mvn exec:java -Dexec.mainClass="search.usecases.IndexEmailsAction" \
-  -Dexec.args="emails.db index models/model.onnx models/tokenizer.json"
 ```
 
-### Update Search Command
-
+**Searching:**
 ```bash
-# Instead of:
 mvn exec:java -Dexec.mainClass="search.usecases.SearchEmailsAction" \
   -Dexec.args="'project discussion' 'john@enron.com' index"
-
-# Use:
-mvn exec:java -Dexec.mainClass="search.usecases.SearchEmailsAction" \
-  -Dexec.args="'project discussion' 'john@enron.com' index models/model.onnx models/tokenizer.json"
 ```
 
 ## Model Specifications
 
-### Recommended Models
+### google/embeddinggemma-300m
 
-| Model | Dimensions | Size | Speed | Quality |
-|-------|------------|------|-------|---------|
-| Gemma 2B Embedding | 768 | ~4GB | Medium | Excellent |
-| all-MiniLM-L6-v2 | 384 | ~90MB | Fast | Good |
-| MPNet Base | 768 | ~420MB | Medium | Very Good |
+| Property | Value |
+|----------|-------|
+| **Parameters** | 300M |
+| **Vector Dimensions** | 768 |
+| **Context Length** | 2,048 tokens |
+| **Model Size** | ~600MB (Safetensors), ~1.2GB (ONNX) |
+| **License** | Gemma Terms of Use |
+| **Optimal Use** | Document embeddings, semantic search |
+| **Base Architecture** | Gemma3TextModel |
 
-**For this project:** Use 768-dimensional models to match the expected vector dimension.
+### Why google/embeddinggemma-300m?
+
+1. **Purpose-built for embeddings** - Unlike base Gemma models, this variant is optimized specifically for generating embeddings
+2. **CPU-optimized** - Runs efficiently on consumer-grade CPUs without GPU
+3. **High quality** - Outperforms general-purpose sentence transformers on many tasks
+4. **Right-sized** - 300M parameters strike a balance between quality and inference speed
+5. **768-dimensional output** - Matches the Lucene vector index configuration
 
 ### Hardware Requirements
 
-- **CPU:** ARM64 or x86_64 with AVX2 support (recommended)
-- **RAM:** 8GB minimum, 16GB recommended for Gemma 2B
-- **Disk:** 5GB free space for model + index
+| Resource | Minimum | Recommended |
+|----------|---------|-------------|
+| **CPU** | x86_64 with AVX2 | ARM64 or x86_64 with AVX-512 |
+| **RAM** | 4GB | 8GB |
+| **Disk** | 2GB free | 5GB free (model + index) |
 
-### Model Input/Output Format
+### Alternative Models
 
-The `OnnxEmbeddingService` expects:
+If google/embeddinggemma-300m is unavailable, these alternatives also work with 768-dimensional vectors:
 
-**Input:**
+| Model | Dimensions | Size | Speed | Quality |
+|-------|------------|------|-------|---------|
+| sentence-transformers/all-mpnet-base-v2 | 768 | ~420MB | Medium | Very Good |
+| BAAI/bge-base-en-v1.5 | 768 | ~420MB | Fast | Very Good |
+| nomic-ai/nomic-embed-text-v1.5 | 768 | ~540MB | Fast | Excellent |
+
+**Note:** Using a non-768-dimensional model requires modifying `VECTOR_DIMENSION` in `OnnxEmbeddingService.java` and re-indexing all data.
+
+## Converting to ONNX (Detailed)
+
+The Safetensors format model must be converted to ONNX for use with the Java ONNX Runtime.
+
+### Prerequisites
+
+```bash
+# Create and activate a virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install torch transformers onnx optimum[exporters]
 ```
-Name: `input_ids`
-Shape: `[batch_size, sequence_length]`
-Type: `int64`
-Range: `[0, vocab_size]`
+
+### Option 1: Using optimum-cli (Recommended)
+
+```bash
+optimum-cli export onnx \
+  --model google/embeddinggemma-300m \
+  --task feature-extraction \
+  --optimize O2 \
+  ./models/onnx/
 ```
 
-**Output:**
-```
-Name: `output` (or `last_hidden_state`)
-Shape: `[batch_size, sequence_length, hidden_size]`
-Type: `float32`
+### Option 2: Using Python Script
+
+```python
+from optimum.onnxruntime import ORTModelForFeatureExtraction
+from transformers import AutoTokenizer
+from pathlib import Path
+
+def convert_to_onnx(model_name: str, output_dir: str):
+    """Convert a HuggingFace embedding model to ONNX format."""
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    print(f"Loading {model_name}...")
+
+    # Load model and tokenizer
+    model = ORTModelForFeatureExtraction.from_pretrained(
+        model_name,
+        export=True
+    )
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    # Save to disk
+    model.save_pretrained(output_dir)
+    tokenizer.save_pretrained(output_dir)
+
+    print(f"Model saved to {output_dir}/model.onnx")
+    print(f"Tokenizer saved to {output_dir}/tokenizer.json")
+
+# Convert google/embeddinggemma-300m
+convert_to_onnx("google/embeddinggemma-300m", "./models/onnx")
 ```
 
-Where `hidden_size` should be 768.
+### Conversion Output
+
+After conversion, verify the model structure:
+
+```python
+import onnx
+
+model = onnx.load("models/onnx/model.onnx")
+
+# Check inputs
+print("Inputs:")
+for input in model.graph.input:
+    print(f"  {input.name}: {[d.dim_value if d.dim_value else 'dynamic' for d in input.type.tensor_type.shape.dim]}")
+
+# Check outputs
+print("Outputs:")
+for output in model.graph.output:
+    print(f"  {output.name}: {[d.dim_value if d.dim_value else 'dynamic' for d in output.type.tensor_type.shape.dim]}")
+```
+
+Expected output:
+```
+Inputs:
+  input_ids: [dynamic, dynamic]
+Outputs:
+  last_hidden_state: [dynamic, dynamic, 768]
+```
 
 ## Troubleshooting
 
@@ -177,37 +276,50 @@ Where `hidden_size` should be 768.
 **Problem:** ONNX Runtime can't load the model
 
 **Solutions:**
-1. Verify model file exists: `ls -lh models/model.onnx`
-2. Check ONNX Runtime version matches model opset:
+1. Verify model file exists: `ls -lh models/onnx/model.onnx`
+2. Check file integrity:
    ```bash
-   python -c "import onnx; print(onnx.load('models/model.onnx').opset_import)"
+   python3 -c "import onnx; onnx.load('models/onnx/model.onnx')" && echo "Valid ONNX"
    ```
-3. Try a different model format (onnxruntime-gpu vs onnxruntime)
+3. Check ONNX Runtime version matches model opset:
+   ```bash
+   python3 -c "import onnx; print(onnx.load('models/onnx/model.onnx').opset_import)"
+   ```
+4. Ensure you converted the model correctly (Safetensors models won't load directly)
+5. Try regenerating the ONNX file with `--optimize O1` instead of `O2`
 
 ### "Tokenizer not found"
 
-**Problem:** tokenizer.json is missing
+**Problem:** tokenizer.json is missing or invalid
 
 **Solutions:**
 1. Ensure tokenizer.json is in the same directory as model.onnx
-2. Check file permissions: `chmod 644 models/tokenizer.json`
-3. Verify JSON is valid: `python -m json.tool models/tokenizer.json > /dev/null`
+2. Check file permissions: `chmod 644 models/onnx/tokenizer.json`
+3. Verify JSON is valid:
+   ```bash
+   python3 -m json.tool models/onnx/tokenizer.json > /dev/null && echo "Valid JSON"
+   ```
+4. Re-download the tokenizer from the source model
 
 ### Poor embedding quality
 
 **Problem:** Search results don't make sense
 
 **Solutions:**
-1. Verify vector dimension matches (must be 768):
-   ```python
+1. Verify vector dimension is 768 (required by the index):
+   ```bash
+   python3 << 'EOF'
    import onnx
-   model = onnx.load("models/model.onnx")
-   dim = model.graph.output[0].type.tensor_type.shape.dim[2].dim_value
-   print(f"Vector dimension: {dim}")
+   model = onnx.load("models/onnx/model.onnx")
+   for output in model.graph.output:
+       dims = [d.dim_value for d in output.type.tensor_type.shape.dim if d.dim_value]
+       if dims:
+           print(f"Output '{output.name}' last dimension: {dims[-1]}")
+   EOF
    ```
-2. Use a better-suited model (Gemma 2B > MiniLM > Word2Vec)
-3. Ensure model is for embeddings, not generation
-4. Check input preprocessing matches model expectations
+2. Ensure you're using an embedding model, not a text generation model
+3. Check that the tokenizer matches the model (mixing tokenizer/model from different sources causes issues)
+4. Verify the model outputs reasonable embeddings by running the verification test below
 
 ### Out of memory
 
@@ -216,10 +328,135 @@ Where `hidden_size` should be 768.
 **Solutions:**
 1. Increase Java heap space:
    ```bash
-   export MAVEN_OPTS="-Xmx8g -Xms4g"
+   export MAVEN_OPTS="-Xmx4g -Xms2g"
    ```
-2. Reduce batch size in `IndexEmailsAction.java`
-3. Use a smaller model (MiniLM instead of Gemma)
+2. Process emails in smaller batches in `IndexEmailsAction.java`
+3. Use a smaller model (BAAI/bge-small-en-v1.5 at 384 dimensions requires code changes)
+
+### "Token ID out of range"
+
+**Problem:** Tokenizer produces IDs not recognized by model
+
+**Solutions:**
+1. Ensure tokenizer.json matches the model (download both from same source)
+2. Check tokenizer vocabulary size matches model's expected input range
+3. Verify the tokenizer is the Gemma tokenizer, not a different model's tokenizer
+
+### "No tokenizer.json found"
+
+**Problem:** Conversion didn't copy tokenizer.json
+
+**Solutions:**
+1. Manually copy tokenizer.json to the output directory:
+   ```bash
+   huggingface-cli download google/embeddinggemma-300m tokenizer.json --local-dir ./models/onnx
+   ```
+2. Or download it directly:
+   ```bash
+   curl -L -o models/onnx/tokenizer.json \
+     "https://huggingface.co/google/embeddinggemma-300m/resolve/main/tokenizer.json"
+   ```
+
+## Verification
+
+Test that your setup works:
+
+### Java Test
+
+Create `src/main/java/search/TestOnnx.java`:
+
+```java
+package search;
+
+import search.adapters.OnnxEmbeddingService;
+
+public class TestOnnx {
+    public static void main(String[] args) throws Exception {
+        try (var service = new OnnxEmbeddingService(
+                "models/onnx/model.onnx",
+                "models/onnx/tokenizer.json")) {
+
+            String[] testSentences = {
+                "The quick brown fox jumps over the lazy dog",
+                "A fast auburn canine leaps above the idle hound",
+                "Machine learning is transforming search technology"
+            };
+
+            for (String sentence : testSentences) {
+                float[] embedding = service.embed(sentence);
+                System.out.println("Sentence: " + sentence);
+                System.out.println("  Dimension: " + embedding.length);
+                System.out.println("  First 5 values: " +
+                    java.util.Arrays.toString(java.util.Arrays.copyOf(embedding, 5)));
+            }
+
+            // Test semantic similarity
+            float[] emb1 = service.embed("The cat sat on the mat");
+            float[] emb2 = service.embed("A feline rested on the rug");
+            float[] emb3 = service.embed("Stock prices rose today");
+
+            double sim12 = cosineSimilarity(emb1, emb2);
+            double sim13 = cosineSimilarity(emb1, emb3);
+
+            System.out.println("\nSemantic similarity test:");
+            System.out.println("  Similar sentences similarity: " + sim12);
+            System.out.println("  Different sentences similarity: " + sim13);
+            System.out.println("  (Higher = more similar, should see sim12 > sim13)");
+        }
+    }
+
+    static double cosineSimilarity(float[] a, float[] b) {
+        double dot = 0, normA = 0, normB = 0;
+        for (int i = 0; i < a.length; i++) {
+            dot += a[i] * b[i];
+            normA += a[i] * a[i];
+            normB += b[i] * b[i];
+        }
+        return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+    }
+}
+```
+
+Run:
+```bash
+mvn compile exec:java -Dexec.mainClass="search.TestOnnx"
+```
+
+Expected output:
+```
+Sentence: The quick brown fox jumps over the lazy dog
+  Dimension: 768
+  First 5 values: [0.023, -0.015, 0.008, ...]
+...
+Semantic similarity test:
+  Similar sentences similarity: 0.823
+  Different sentences similarity: 0.234
+  (Higher = more similar, should see sim12 > sim13)
+```
+
+### Python Test
+
+```python
+import onnxruntime as ort
+import numpy as np
+from transformers import AutoTokenizer
+
+# Load model
+session = ort.InferenceSession("models/onnx/model.onnx")
+print(f"Inputs: {[i.name for i in session.get_inputs()]}")
+print(f"Outputs: {[o.name for o in session.get_outputs()]}")
+
+# Load tokenizer
+tokenizer = AutoTokenizer.from_pretrained("models/onnx/")
+
+# Test inference
+text = "Test sentence for embedding"
+tokens = tokenizer(text, return_tensors="np", padding=True, truncation=True)
+outputs = session.run(None, {"input_ids": tokens["input_ids"]})
+
+print(f"Output shape: {outputs[0].shape}")
+print(f"Embedding dimension: {outputs[0].shape[-1]}")
+```
 
 ## Performance Tuning
 
@@ -227,96 +464,93 @@ Where `hidden_size` should be 768.
 
 To improve indexing performance:
 
-1. **Increase batch size** in `IndexEmailsAction.java`:
-   ```java
-   private static final int BATCH_SIZE = 5000; // Increase from 1000
-   ```
-
-2. **Use SSD** for index directory
-
-3. **Parallel processing** (future enhancement):
-   ```java
-   // Use parallel streams or multiple threads
-   emails.parallelStream().forEach(email -> {
-       Document doc = createDocument(email, embeddingService);
-       writer.addDocument(doc);
-   });
-   ```
+1. **Batch processing**: Modify `IndexEmailsAction.java` to collect emails into batches and use `writer.addDocuments()` instead of `writer.addDocument()`
+2. **Use SSD** for the index directory
+3. **Disable normalization during inference** if model already outputs normalized vectors (comment out normalization in `OnnxEmbeddingService.embed()`)
 
 ### Search Speed
 
 To improve search latency:
 
-1. **Reduce RRF candidates** in `LuceneHybridSearchEngine.java`:
-   ```java
-   private static final int SEMANTIC_CANDIDATES = 50; // Reduce from 100
-   private static final int KEYWORD_CANDIDATES = 50;
-   ```
+1. **Reduce maxResults parameter**: Pass a smaller value when calling `performHybridSearch()`
+2. **Use MMapDirectory** for larger indices (automatic in current implementation)
+3. **Enable ONNX Runtime optimizations** (already enabled in `SessionOptions`)
 
-2. **Use MMapDirectory** for larger indices:
-   ```java
-   Directory directory = new MMapDirectory(Paths.get(indexDir));
-   ```
+## Model Input/Output Format
 
-## Verification
+The `OnnxEmbeddingService` expects models with this interface:
 
-Test that your setup works:
-
-```bash
-# Generate embedding for test text
-java -cp target/classes:target/dependency/* \
-  -c 'search.adapters.OnnxEmbeddingService models/model.onnx models/tokenizer.json'
-
-# Expected: 768-dimensional float array printed
+**Input:**
+```
+Name: input_ids
+Shape: [batch_size, sequence_length]
+Type: int64
 ```
 
-Or use Python:
-
-```python
-import onnxruntime as ort
-import json
-
-# Load model
-session = ort.InferenceSession("models/model.onnx")
-print(f"Model loaded: {session.get_modelmeta().description}")
-
-# Test tokenizer
-tokenizer = json.load(open("models/tokenizer.json"))
-print(f"Vocab size: {len(tokenizer.get('model', {}).get('vocab', {}))}")
+**Output:**
+```
+Name: last_hidden_state (or output)
+Shape: [batch_size, sequence_length, hidden_size]
+Type: float32
 ```
 
-## Alternative: Using OpenAI/DJL Instead
+Where `hidden_size` must be 768 to match the Lucene index configuration.
 
-If ONNX is too complex, consider these alternatives:
+## Important: Tokenizer Implementation Status
+
+**Current Limitation:** The `OnnxEmbeddingService` class contains a stub tokenizer implementation (`initializeSimpleTokenizer()`) with only 44 common words. This is not suitable for production use.
+
+**To use the full tokenizer:**
+
+1. Implement proper tokenizer loading from the `tokenizer.json` file, OR
+2. Use a library like [tokenizers-java](https://github.com/huggingface/tokenizers) (bindings available via JNI)
+
+For now, the service will work with simple English text but may produce poor embeddings for technical terms, proper nouns, or non-English text.
+
+## Alternative: Using External API
+
+If local ONNX is not feasible:
 
 ### OpenAI Embeddings
+
+Add to `pom.xml`:
+```xml
+<dependency>
+    <groupId>com.theokanning.openai-gpt3-java</groupId>
+    <artifactId>service</artifactId>
+    <version>0.18.2</version>
+</dependency>
+```
+
+Create `OpenAIEmbeddingService.java`:
 ```java
-// Add dependency
-// implementation 'com.theokanning.openai-gpt3-java:service:0.18.2'
+package search.adapters;
+
+import com.theokanning.openai.OpenAiService;
+import com.theokanning.openai.embedding.EmbeddingRequest;
+import search.core.EmbeddingService;
 
 public class OpenAIEmbeddingService implements EmbeddingService {
     private final OpenAiService service;
-    
-    public float[] embed(String text) {
-        Embedding embedding = service.createEmbedding(
-            new EmbeddingRequest("text-embedding-ada-002", text)
-        );
-        return embedding.getValues();
+    private static final String MODEL = "text-embedding-3-small";
+
+    public OpenAIEmbeddingService(String apiKey) {
+        this.service = new OpenAiService(apiKey);
     }
-}
-```
 
-### DJL (Deep Java Library)
-```java
-// Add dependency
-// implementation 'ai.djl.huggingface:tokenizers'
-// implementation 'ai.djl.onnxruntime:onnxruntime-engine'
-
-public class DjlEmbeddingService implements EmbeddingService {
-    private final Predictor<String, float[]> predictor;
-    
+    @Override
     public float[] embed(String text) {
-        return predictor.predict(text);
+        var request = new EmbeddingRequest(MODEL, text);
+        var embedding = service.createEmbedding(request).getData().get(0);
+        return toFloatArray(embedding.getEmbedding());
+    }
+
+    private float[] toFloatArray(java.util.List<Double> list) {
+        float[] arr = new float[list.size()];
+        for (int i = 0; i < list.size(); i++) {
+            arr[i] = list.get(i).floatValue();
+        }
+        return arr;
     }
 }
 ```
@@ -326,13 +560,14 @@ public class DjlEmbeddingService implements EmbeddingService {
 Once you have ONNX working:
 
 1. **Re-index your data** with real embeddings for better search quality
-2. **Experiment with different models** to find the best quality/speed tradeoff
+2. **Experiment with RRF parameters** (currently k=60) for your specific use case
 3. **Add phone number extraction** to `EmailParser.java` for better metadata search
-4. **Tune RRF parameters** for your specific use case
+4. **Monitor indexing performance** and adjust batch sizes as needed
+5. **Implement full tokenizer loading** for production use
 
 ## Support
 
 - **ONNX Runtime:** https://onnxruntime.ai/
 - **Hugging Face Models:** https://huggingface.co/models?other=onnx
+- **Google Embedding Gemma:** https://huggingface.co/google/embeddinggemma-300m
 - **ONNX Repository:** https://github.com/onnx/models
-- **Project Issues:** [Link to your GitHub issues]
