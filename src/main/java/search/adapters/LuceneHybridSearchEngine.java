@@ -1,6 +1,5 @@
 package search.adapters;
 
-import ai.onnxruntime.OrtException;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
@@ -17,6 +16,7 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.index.Term;
+
 import search.core.EmailSearchResult;
 import search.core.EmbeddingService;
 import search.core.HybridSearchEngine;
@@ -150,6 +150,16 @@ public class LuceneHybridSearchEngine implements HybridSearchEngine {
                 ? bodyContent.substring(0, 200) + "..."
                 : bodyContent != null ? bodyContent : "";
 
+        String timestampStr = doc.get("timestamp_ms");
+        long timestampMs = 0L;
+        if (timestampStr != null && !timestampStr.isEmpty()) {
+            try {
+                timestampMs = Long.parseLong(timestampStr);
+            } catch (NumberFormatException e) {
+                timestampMs = System.currentTimeMillis();
+            }
+        }
+
         return new EmailSearchResult(
                 doc.get("message_id"),
                 doc.get("from_email"),
@@ -158,7 +168,7 @@ public class LuceneHybridSearchEngine implements HybridSearchEngine {
                 doc.get("subject"),
                 bodySnippet,
                 bodyContent,
-                Long.parseLong(doc.get("timestamp_ms")),
+                timestampMs,
                 "1".equals(doc.get("has_attachments")),
                 doc.get("labels")
         );

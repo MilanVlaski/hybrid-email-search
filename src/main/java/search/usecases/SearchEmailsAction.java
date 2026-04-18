@@ -8,23 +8,22 @@ import search.adapters.MockEmbeddingService;
 
 public class SearchEmailsAction {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         if (args.length < 3) {
             System.err.println("Usage: SearchEmailsAction <query> <target-email> <index-dir>");
-            System.err.println("Examples:");
+            System.err.println("Use - as a placeholder for empty values:");
             System.err.println("  SearchEmailsAction \"project discussion\" \"john@company.com\" /path/to/index");
-            System.err.println("  SearchEmailsAction \"financial report\" \"\" /path/to/index");
+            System.err.println("  SearchEmailsAction \"project discussion\" - /path/to/index   (search all emails)");
+            System.err.println("  SearchEmailsAction - \"john@company.com\" /path/to/index   (all content filter)");
             System.exit(1);
         }
 
-        String query = args[0];
-        String targetEmail = args[1];
+        String query = args[0].equals("-") ? "" : args[0];
+        String targetEmail = args[1].equals("-") ? "" : args[1];
         String indexDir = args[2];
 
-        try {
-            EmbeddingService embeddingService = new MockEmbeddingService();
-            HybridSearchEngine searchEngine = new LuceneHybridSearchEngine(indexDir, embeddingService);
-
+        EmbeddingService embeddingService = new MockEmbeddingService();
+        try (HybridSearchEngine searchEngine = new LuceneHybridSearchEngine(indexDir, embeddingService)) {
             System.out.println("Performing hybrid search...");
             System.out.println("Query: " + query);
             System.out.println("Target email: " + (targetEmail.isEmpty() ? "(none)" : targetEmail));
@@ -53,15 +52,6 @@ public class SearchEmailsAction {
                 System.out.println(result.bodySnippet());
                 System.out.println("\n");
             }
-
-            if (searchEngine instanceof LuceneHybridSearchEngine luceneEngine) {
-                luceneEngine.close();
-            }
-
-        } catch (Exception e) {
-            System.err.println("Search failed: " + e.getMessage());
-            e.printStackTrace();
-            System.exit(1);
         }
     }
 }

@@ -7,7 +7,8 @@ import java.sql.Statement;
 
 public class VerifyDatabaseAction {
     public static void main(String[] args) throws Exception {
-        String dbUrl = "jdbc:sqlite:emails.db";
+        String dbPath = args.length > 0 ? args[0] : "emails.db";
+        String dbUrl = "jdbc:sqlite:" + dbPath;
         try (Connection conn = DriverManager.getConnection(dbUrl);
              Statement stmt = conn.createStatement()) {
 

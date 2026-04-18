@@ -1,5 +1,6 @@
 package search.core;
 
-public interface HybridSearchEngine {
-    EmailSearchResult[] performHybridSearch(String userQueryText, String targetEmail, int maxResults);
+public interface HybridSearchEngine extends AutoCloseable {
+    EmailSearchResult[] performHybridSearch(
+            String userQueryText, String targetEmail, int maxResults);
 }
