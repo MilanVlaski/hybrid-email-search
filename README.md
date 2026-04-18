@@ -1,0 +1,1 @@
+This system implements a hybrid search architecture using Apache Lucene for high-performance indexing and Gemma (via ONNX or DJL) for generating 768-dimensional embeddings. It utilizes HNSW graph-based vector search with int8 scalar quantization and MMapDirectory for CPU efficiency, merged with classic keyword indexing via Reciprocal Rank Fusion (RRF).
