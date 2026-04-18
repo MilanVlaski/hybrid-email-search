@@ -52,15 +52,28 @@ public class OnnxEmbeddingService implements EmbeddingService {
             long[] tokenIds = tokenize(text);
             long[] shape = {1, tokenIds.length};
 
-            try (OnnxTensor inputTensor = OnnxTensor.createTensor(env, LongBuffer.wrap(tokenIds), shape)) {
-                Map<String, OnnxTensor> inputs = Map.of("input_ids", inputTensor);
+            long[] attentionMask = new long[tokenIds.length];
+            Arrays.fill(attentionMask, 1L);
+
+            try (OnnxTensor inputIdsTensor = OnnxTensor.createTensor(env, LongBuffer.wrap(tokenIds), shape);
+                 OnnxTensor attentionMaskTensor = OnnxTensor.createTensor(env, LongBuffer.wrap(attentionMask), shape)) {
+                
+                Map<String, OnnxTensor> inputs = Map.of(
+                        "input_ids", inputIdsTensor,
+                        "attention_mask", attentionMaskTensor
+                );
 
                 try (OrtSession.Result results = session.run(inputs)) {
                     var output = results.get(0).getValue();
-                    if (!(output instanceof float[][] floatArray)) {
+                    float[][] tokenEmbeddings;
+                    if (output instanceof float[][][] floatArray3D) {
+                        tokenEmbeddings = floatArray3D[0]; // Take the first batch
+                    } else if (output instanceof float[][] floatArray2D) {
+                        tokenEmbeddings = floatArray2D;
+                    } else {
                         throw new RuntimeException("Unexpected output type from ONNX model: " + output.getClass());
                     }
-                    float[] pooled = averagePool(floatArray);
+                    float[] pooled = averagePool(tokenEmbeddings);
                     return normalize(pooled);
                 }
             }

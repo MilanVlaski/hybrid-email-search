@@ -1,10 +1,9 @@
 package search.usecases;
 
+import search.adapters.*;
 import search.core.EmailSearchResult;
 import search.core.EmbeddingService;
 import search.core.HybridSearchEngine;
-import search.adapters.LuceneHybridSearchEngine;
-import search.adapters.MockEmbeddingService;
 
 public class SearchEmailsAction {
 
@@ -22,7 +21,10 @@ public class SearchEmailsAction {
         String targetEmail = args[1].equals("-") ? "" : args[1];
         String indexDir = args[2];
 
-        EmbeddingService embeddingService = new MockEmbeddingService();
+        EmbeddingService embeddingService = new OnnxEmbeddingService(
+                "models/onnx/model.onnx",
+                "models/onnx/tokenizer.json"
+        );
         try (HybridSearchEngine searchEngine = new LuceneHybridSearchEngine(indexDir, embeddingService)) {
             System.out.println("Performing hybrid search...");
             System.out.println("Query: " + query);

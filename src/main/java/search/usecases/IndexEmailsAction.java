@@ -7,10 +7,10 @@ import org.apache.lucene.codecs.lucene99.Lucene99HnswScalarQuantizedVectorsForma
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.*;
 import org.apache.lucene.store.FSDirectory;
+
+import search.adapters.*;
 import search.core.Email;
 import search.core.EmbeddingService;
-import search.adapters.EmailDatabase;
-import search.adapters.MockEmbeddingService;
 
 import java.nio.file.Paths;
 import java.sql.*;
@@ -33,7 +33,10 @@ public class IndexEmailsAction {
 
         try {
             // Use MockEmbeddingService for MVP - replace with OnnxEmbeddingService for production
-            EmbeddingService embeddingService = new MockEmbeddingService();
+            EmbeddingService embeddingService = new OnnxEmbeddingService(
+                    "models/onnx/model.onnx",
+                    "models/onnx/tokenizer.json"
+            );
             
             // Build index
             new IndexEmailsAction().indexEmails(dbPath, indexDir, embeddingService);
