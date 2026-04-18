@@ -1,3 +1,5 @@
+emails.db
+emails.csv
 .idea
 ### Maven template
 target/
