@@ -6,7 +6,7 @@ This system implements a hybrid search architecture using Apache Lucene for high
 
 - **Java 21** or higher
 - **Maven**
-- **Enron Dataset**: You must download the Enron dataset (`emails.csv`) and place it in the root directory of this project.
+- **Enron Dataset**: You must download the Enron dataset from [here](https://www.kaggle.com/datasets/wcukierski/enron-email-dataset), and extract `emails.csv` into the root directory of this project.
 
 ## Building the Project
 
