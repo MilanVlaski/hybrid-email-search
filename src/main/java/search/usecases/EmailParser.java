@@ -2,18 +2,19 @@ package search.usecases;
 
 import search.core.Email;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
 public class EmailParser {
 
-    private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat(
-            "EEE, d MMM yyyy HH:mm:ss Z (z)", Locale.US
-    );
+    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter
+            .ofPattern("EEE, d MMM yyyy HH:mm:ss Z (z)", Locale.US)
+            .withZone(ZoneId.systemDefault());
 
     public Email parse(String rawMessage, String labels) {
         if (rawMessage == null || rawMessage.isEmpty()) {
@@ -93,10 +94,9 @@ public class EmailParser {
     private long parseDate(String dateStr) {
         if (dateStr == null) return System.currentTimeMillis();
         try {
-            Date d = DATE_FORMAT.parse(dateStr);
-            return d.getTime();
-        } catch (ParseException e) {
-            // Fallback parsing or just return current time for simplicity
+            Instant instant = Instant.from(DATE_FORMAT.parse(dateStr));
+            return instant.toEpochMilli();
+        } catch (DateTimeParseException e) {
             return System.currentTimeMillis();
         }
     }

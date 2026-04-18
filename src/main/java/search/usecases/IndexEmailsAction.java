@@ -127,7 +127,9 @@ public class IndexEmailsAction {
 
         // Indexed fields for search
         // 1. Vector embedding for semantic search
-        String textToEmbed = email.subject() + " " + email.bodyContent();
+        String subject = email.subject() != null ? email.subject() : "";
+        String body = email.bodyContent() != null ? email.bodyContent() : "";
+        String textToEmbed = subject + " " + body;
         if (textToEmbed.length() > 512) {
             textToEmbed = textToEmbed.substring(0, 512);
         }
@@ -164,7 +166,7 @@ public class IndexEmailsAction {
 
     private String extractPhoneNumbers(String text) {
         if (text == null) return "";
-        // Simple phone number extraction - can be enhanced
+        // TODO: Implement phone number extraction using regex
         return "";
     }
 }

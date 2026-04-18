@@ -17,14 +17,14 @@ By default, the application uses `MockEmbeddingService` which generates determin
 The easiest approach is to download a pre-converted ONNX model:
 
 1. **Download from Hugging Face:**
-   ```bash
-   # Install git-lfs first if you don't have it
-   git lfs install
-   
-   # Download the model
-   git clone https://huggingface.co/kadir/gemma-2b-embedding-onnx
-   cd gemma-2b-embedding-onnx
-   ```
+```bash
+# Install git-lfs first if you don't have it
+git lfs install
+
+# Download the model
+git clone https://huggingface.co/kadir/gemma-2b-embedding-onnx
+cd gemma-2b-embedding-onnx
+```
 
 2. **Files you'll get:**
    - `model.onnx` - The embedding model
@@ -32,10 +32,10 @@ The easiest approach is to download a pre-converted ONNX model:
    - `config.json` - Model configuration
 
 3. **Move to project directory:**
-   ```bash
-   mkdir -p models
-   cp model.onnx tokenizer.json /path/to/advanced-search/models/
-   ```
+```bash
+mkdir -p models
+cp model.onnx tokenizer.json /path/to/advanced-search/models/
+```
 
 ### Option 2: Convert Your Own Model
 

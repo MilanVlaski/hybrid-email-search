@@ -56,13 +56,13 @@ Search emails using a combination of semantic understanding and exact keyword ma
 
 ```bash
 # Search by semantic query only
-mvn exec:java -Dexec.mainClass="search.usecases.SearchEmailsAction" -Dexec.args="\"project discussion\" \"\" index"
+mvn exec:java -Dexec.mainClass="search.usecases.SearchEmailsAction" -Dexec.args="\"project discussion\" - index"
 
 # Search with both semantic query and target email for exact matching
 mvn exec:java -Dexec.mainClass="search.usecases.SearchEmailsAction" -Dexec.args="\"financial meeting\" \"john@enron.com\" index"
 
 # Search with just an email to find all messages from/to a specific address
-mvn exec:java -Dexec.mainClass="search.usecases.SearchEmailsAction" -Dexec.args="\"\" \"jane@enron.com\" index"
+mvn exec:java -Dexec.mainClass="search.usecases.SearchEmailsAction" -Dexec.args="- \"jane@enron.com\" index"
 ```
 
 Results are ranked using Reciprocal Rank Fusion (RRF), which intelligently combines:
