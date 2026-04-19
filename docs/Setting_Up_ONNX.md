@@ -29,16 +29,6 @@ Download the model and tokenizer from Hugging Face:
 # Create models directory
 mkdir -p models
 
-# Download model (requires Hugging Face CLI - pip install huggingface-hub)
-huggingface-cli download google/embeddinggemma-300m \
-  --local-dir ./models --local-dir-use-symlinks False
-```
-
-**Alternative: Using curl (individual files):**
-
-```bash
-mkdir -p models
-
 # Note: These are Safetensors format files, not ONNX
 # You'll need to convert the model (see "Converting to ONNX" section below)
 curl -L -o models/model.safetensors \
@@ -67,7 +57,7 @@ python3 -m venv venv
 source venv/bin/activate
 
 # Install dependencies
-pip install torch transformers onnx optimum[exporters]
+pip install torch transformers onnx optimum[onnxruntime]
 
 # Convert to ONNX
 optimum-cli export onnx \
@@ -93,54 +83,7 @@ ls -lh models/onnx/
 python3 -c "import onnx; m = onnx.load('models/onnx/model.onnx'); print(f'Opset: {m.opset_import}')"
 ```
 
-### Step 4: Update Source Code
-
-Replace `MockEmbeddingService` with `OnnxEmbeddingService` in the action classes:
-
-**Update `IndexEmailsAction.java` line 36:**
-
-```java
-// Change from:
-EmbeddingService embeddingService = new MockEmbeddingService();
-
-// To:
-var embeddingService = new OnnxEmbeddingService(
-    "models/onnx/model.onnx",
-    "models/onnx/tokenizer.json"
-);
-```
-
-**Update `SearchEmailsAction.java` line 25:**
-
-```java
-// Change from:
-EmbeddingService embeddingService = new MockEmbeddingService();
-
-// To:
-var embeddingService = new OnnxEmbeddingService(
-    "models/onnx/model.onnx",
-    "models/onnx/tokenizer.json"
-);
-```
-
-**Note:** Use `var` to preserve access to the `close()` method for resource cleanup, or cast when needed:
-```java
-((OnnxEmbeddingService) embeddingService).close();
-```
-
-### Step 5: Run with Real Embeddings
-
-**Indexing:**
-```bash
-mvn exec:java -Dexec.mainClass="search.usecases.IndexEmailsAction" \
-  -Dexec.args="emails.db index"
-```
-
-**Searching:**
-```bash
-mvn exec:java -Dexec.mainClass="search.usecases.SearchEmailsAction" \
-  -Dexec.args="'project discussion' 'john@enron.com' index"
-```
+## **YOU WILL FIND ONLY AI GIBBERISH BELOW**
 
 ## Model Specifications
 
@@ -197,48 +140,12 @@ source venv/bin/activate
 
 # Install dependencies
 pip install torch transformers onnx optimum[exporters]
-```
 
-### Option 1: Using optimum-cli (Recommended)
-
-```bash
 optimum-cli export onnx \
   --model google/embeddinggemma-300m \
   --task feature-extraction \
   --optimize O2 \
   ./models/onnx/
-```
-
-### Option 2: Using Python Script
-
-```python
-from optimum.onnxruntime import ORTModelForFeatureExtraction
-from transformers import AutoTokenizer
-from pathlib import Path
-
-def convert_to_onnx(model_name: str, output_dir: str):
-    """Convert a HuggingFace embedding model to ONNX format."""
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
-
-    print(f"Loading {model_name}...")
-
-    # Load model and tokenizer
-    model = ORTModelForFeatureExtraction.from_pretrained(
-        model_name,
-        export=True
-    )
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-    # Save to disk
-    model.save_pretrained(output_dir)
-    tokenizer.save_pretrained(output_dir)
-
-    print(f"Model saved to {output_dir}/model.onnx")
-    print(f"Tokenizer saved to {output_dir}/tokenizer.json")
-
-# Convert google/embeddinggemma-300m
-convert_to_onnx("google/embeddinggemma-300m", "./models/onnx")
 ```
 
 ### Conversion Output
