@@ -6,7 +6,7 @@ import org.apache.lucene.codecs.lucene99.Lucene99Codec;
 import org.apache.lucene.codecs.lucene99.Lucene99HnswScalarQuantizedVectorsFormat;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.*;
-import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.store.MMapDirectory;
 
 import search.adapters.*;
 import search.core.Email;
@@ -50,11 +50,10 @@ public class IndexEmailsAction {
     }
 
     public void indexEmails(String dbPath, String indexDir, EmbeddingService embeddingService) throws Exception {
-        // Setup Lucene with int8 quantization
-        KnnVectorsFormat quantizedFormat = new Lucene99HnswScalarQuantizedVectorsFormat(
-            256, // numMergeWorkers
-            1024 // scalarQuantizerBits
-        );
+        // Setup Lucene with int8 quantization and tuned HNSW parameters
+        int maxConn = 12;
+        int beamWidth = 60;
+        KnnVectorsFormat quantizedFormat = new Lucene99HnswScalarQuantizedVectorsFormat(maxConn, beamWidth);
         
         Codec customCodec = new Lucene99Codec() {
             @Override
@@ -67,7 +66,7 @@ public class IndexEmailsAction {
         config.setCodec(customCodec);
         
         try (IndexWriter writer = new IndexWriter(
-            FSDirectory.open(Paths.get(indexDir)), config);
+            MMapDirectory.open(Paths.get(indexDir)), config);
              Connection conn = DriverManager.getConnection("jdbc:sqlite:" + dbPath)) {
 
             Statement stmt = conn.createStatement();
@@ -138,7 +137,7 @@ public class IndexEmailsAction {
         }
         
         try {
-            float[] vector = embeddingService.embed(textToEmbed);
+            float[] vector = embeddingService.embed("document: " + textToEmbed);
             if (vector.length != VECTOR_DIMENSION) {
                 logger.warning("Vector dimension mismatch: expected " + VECTOR_DIMENSION + ", got " + vector.length);
             }
@@ -169,7 +168,10 @@ public class IndexEmailsAction {
 
     private String extractPhoneNumbers(String text) {
         if (text == null) return "";
-        // TODO: Implement phone number extraction using regex
+        String normalized = text.replaceAll("[^\\d]", "");
+        if (normalized.length() >= 7 && normalized.length() <= 15) {
+            return normalized;
+        }
         return "";
     }
 }

@@ -14,7 +14,7 @@ import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHits;
-import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.store.MMapDirectory;
 import org.apache.lucene.index.Term;
 
 import search.core.EmailSearchResult;
@@ -33,7 +33,7 @@ public class LuceneHybridSearchEngine implements HybridSearchEngine {
     private static final int DEFAULT_MAX_RESULTS = 100;
 
     public LuceneHybridSearchEngine(String indexDir, EmbeddingService embeddingService) throws IOException {
-        this.reader = DirectoryReader.open(FSDirectory.open(Paths.get(indexDir)));
+        this.reader = DirectoryReader.open(MMapDirectory.open(Paths.get(indexDir)));
         this.searcher = new IndexSearcher(reader);
         this.embeddingService = embeddingService;
     }
@@ -70,7 +70,7 @@ public class LuceneHybridSearchEngine implements HybridSearchEngine {
             return new TopDocs(new TotalHits(0, TotalHits.Relation.EQUAL_TO), new ScoreDoc[0]);
         }
 
-        float[] queryVector = embeddingService.embed(queryText);
+        float[] queryVector = embeddingService.embed("query: " + queryText);
         Query vectorQuery = new KnnFloatVectorQuery("content_vector", queryVector, maxResults);
         return searcher.search(vectorQuery, maxResults);
     }
