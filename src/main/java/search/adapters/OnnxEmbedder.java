@@ -3,23 +3,23 @@ package search.adapters;
 import ai.onnxruntime.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import search.core.EmbeddingService;
+import search.core.Embedder;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.nio.LongBuffer;
 import java.util.*;
 
-public class OnnxEmbeddingService implements EmbeddingService {
+public class OnnxEmbedder implements Embedder {
     private final OrtEnvironment env;
     private final OrtSession session;
     private final Map<String, Long> tokenToId;
     private static final int VECTOR_DIMENSION = 768;
 
-    public OnnxEmbeddingService(String modelPath, String tokenizerPath) throws Exception {
+    public OnnxEmbedder(String modelPath, String tokenizerPath) throws Exception {
         this.env = OrtEnvironment.getEnvironment();
 
-        OrtSession.SessionOptions opts = new OrtSession.SessionOptions();
+        var opts = new OrtSession.SessionOptions();
         opts.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT);
 
         session = env.createSession(modelPath, opts);
@@ -30,38 +30,38 @@ public class OnnxEmbeddingService implements EmbeddingService {
 
     private void initializeTokenizerFromJson(String tokenizerPath) throws Exception {
         // Read the tokenizer JSON file
-        StringBuilder jsonContent = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(new FileReader(tokenizerPath))) {
+        var jsonContent = new StringBuilder();
+        try (var reader = new BufferedReader(new FileReader(tokenizerPath))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 jsonContent.append(line);
             }
         }
 
-        JSONObject tokenizerJson = new JSONObject(jsonContent.toString());
+        var tokenizerJson = new JSONObject(jsonContent.toString());
 
         // Extract the vocabulary from the model section
-        JSONObject model = tokenizerJson.getJSONObject("model");
-        JSONObject vocab = model.getJSONObject("vocab");
+        var model = tokenizerJson.getJSONObject("model");
+        var vocab = model.getJSONObject("vocab");
 
         // Clear and populate the tokenToId map
         tokenToId.clear();
 
         // Add all tokens from the vocabulary
-        Iterator<String> keys = vocab.keys();
+        var keys = vocab.keys();
         while (keys.hasNext()) {
-            String token = keys.next();
-            long id = vocab.getLong(token);
+            var token = keys.next();
+            var id = vocab.getLong(token);
             tokenToId.put(token, id);
         }
 
         // Also extract special tokens if they exist separately
         if (tokenizerJson.has("added_tokens")) {
-            JSONArray addedTokens = tokenizerJson.getJSONArray("added_tokens");
-            for (int i = 0; i < addedTokens.length(); i++) {
-                JSONObject tokenObj = addedTokens.getJSONObject(i);
-                String content = tokenObj.getString("content");
-                long id = tokenObj.getLong("id");
+            var addedTokens = tokenizerJson.getJSONArray("added_tokens");
+            for (var i = 0; i < addedTokens.length(); i++) {
+                var tokenObj = addedTokens.getJSONObject(i);
+                var content = tokenObj.getString("content");
+                var id = tokenObj.getLong("id");
                 // Only add if not already in vocab (vocab takes precedence)
                 if (!tokenToId.containsKey(content)) {
                     tokenToId.put(content, id);
@@ -77,21 +77,21 @@ public class OnnxEmbeddingService implements EmbeddingService {
                 return new float[VECTOR_DIMENSION];
             }
 
-            long[] tokenIds = tokenize(text);
+            var tokenIds = tokenize(text);
             long[] shape = {1, tokenIds.length};
 
-            long[] attentionMask = new long[tokenIds.length];
+            var attentionMask = new long[tokenIds.length];
             Arrays.fill(attentionMask, 1L);
 
-            try (OnnxTensor inputIdsTensor = OnnxTensor.createTensor(env, LongBuffer.wrap(tokenIds), shape);
-                 OnnxTensor attentionMaskTensor = OnnxTensor.createTensor(env, LongBuffer.wrap(attentionMask), shape)) {
+            try (var inputIdsTensor = OnnxTensor.createTensor(env, LongBuffer.wrap(tokenIds), shape);
+                 var attentionMaskTensor = OnnxTensor.createTensor(env, LongBuffer.wrap(attentionMask), shape)) {
 
-                Map<String, OnnxTensor> inputs = Map.of(
+                var inputs = Map.of(
                         "input_ids", inputIdsTensor,
                         "attention_mask", attentionMaskTensor
                 );
 
-                try (OrtSession.Result results = session.run(inputs)) {
+                try (var results = session.run(inputs)) {
                     var output = results.get(0).getValue();
                     float[][] tokenEmbeddings;
                     if (output instanceof float[][][] floatArray3D) {
@@ -101,7 +101,7 @@ public class OnnxEmbeddingService implements EmbeddingService {
                     } else {
                         throw new RuntimeException("Unexpected output type from ONNX model: " + output.getClass());
                     }
-                    float[] pooled = averagePool(tokenEmbeddings);
+                    var pooled = averagePool(tokenEmbeddings);
                     return normalize(pooled);
                 }
             }
@@ -116,17 +116,17 @@ public class OnnxEmbeddingService implements EmbeddingService {
         }
 
         // Normalize text (lowercase and trim)
-        String normalized = text.toLowerCase().trim();
+        var normalized = text.toLowerCase().trim();
 
         // Split into words (whitespace)
-        String[] words = normalized.split("\\s+");
+        var words = normalized.split("\\s+");
 
-        List<Long> allTokens = new ArrayList<>();
+        var allTokens = new ArrayList<Long>();
         allTokens.add(tokenToId.get("<bos>"));
 
-        for (String word : words) {
+        for (var word : words) {
             if (word.isEmpty()) continue;
-            Long tokenId = tokenToId.get(word);
+            var tokenId = tokenToId.get(word);
             if (tokenId != null) {
                 allTokens.add(tokenId);
             } else {
@@ -142,16 +142,16 @@ public class OnnxEmbeddingService implements EmbeddingService {
     private float[] averagePool(float[][] tokenEmbeddings) {
         if (tokenEmbeddings.length == 0) return new float[VECTOR_DIMENSION];
 
-        int hiddenSize = tokenEmbeddings[0].length;
-        float[] pooled = new float[hiddenSize];
+        var hiddenSize = tokenEmbeddings[0].length;
+        var pooled = new float[hiddenSize];
 
-        for (float[] tokenEmbedding : tokenEmbeddings) {
-            for (int i = 0; i < hiddenSize; i++) {
+        for (var tokenEmbedding : tokenEmbeddings) {
+            for (var i = 0; i < hiddenSize; i++) {
                 pooled[i] += tokenEmbedding[i];
             }
         }
 
-        for (int i = 0; i < hiddenSize; i++) {
+        for (var i = 0; i < hiddenSize; i++) {
             pooled[i] /= tokenEmbeddings.length;
         }
 
@@ -159,16 +159,16 @@ public class OnnxEmbeddingService implements EmbeddingService {
     }
 
     private float[] normalize(float[] vector) {
-        float norm = 0.0f;
-        for (float v : vector) {
+        var norm = 0.0f;
+        for (var v : vector) {
             norm += v * v;
         }
         norm = (float) Math.sqrt(norm);
 
         if (norm < 1e-12) return vector;
 
-        float[] normalized = new float[vector.length];
-        for (int i = 0; i < vector.length; i++) {
+        var normalized = new float[vector.length];
+        for (var i = 0; i < vector.length; i++) {
             normalized[i] = vector[i] / norm;
         }
 

@@ -106,11 +106,5 @@
         <artifactId>json</artifactId>
         <version>20231013</version>
     </dependency>
-    <!-- JSON parser for tokenizer -->
-    <dependency>
-        <groupId>org.json</groupId>
-        <artifactId>json</artifactId>
-        <version>20231013</version>
-    </dependency>
     </dependencies>
 </project>

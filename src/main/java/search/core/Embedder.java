@@ -1,5 +1,5 @@
 package search.core;
 
-public interface EmbeddingService {
+public interface Embedder {
     float[] embed(String text);
 }

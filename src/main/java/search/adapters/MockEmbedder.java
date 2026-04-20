@@ -1,16 +1,16 @@
 package search.adapters;
 
-import search.core.EmbeddingService;
+import search.core.Embedder;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
-public class MockEmbeddingService implements EmbeddingService {
+public class MockEmbedder implements Embedder {
     private static final int VECTOR_DIMENSION = 768;
     private final MessageDigest digest;
 
-    public MockEmbeddingService() {
+    public MockEmbedder() {
         try {
             this.digest = MessageDigest.getInstance("SHA-256");
         } catch (NoSuchAlgorithmException e) {
@@ -25,11 +25,11 @@ public class MockEmbeddingService implements EmbeddingService {
         }
 
         // Deterministic "embedding" based on text hash for testing
-        byte[] hash = digest.digest(text.getBytes(StandardCharsets.UTF_8));
-        float[] vector = new float[VECTOR_DIMENSION];
+        var hash = digest.digest(text.getBytes(StandardCharsets.UTF_8));
+        var vector = new float[VECTOR_DIMENSION];
 
-        for (int i = 0; i < VECTOR_DIMENSION; i++) {
-            int byteIndex = i % hash.length;
+        for (var i = 0; i < VECTOR_DIMENSION; i++) {
+            var byteIndex = i % hash.length;
             vector[i] = (hash[byteIndex] & 0xFF) / 255.0f * 2 - 1; // Normalize to [-1, 1]
         }
 
@@ -38,8 +38,8 @@ public class MockEmbeddingService implements EmbeddingService {
     }
 
     private float[] normalize(float[] vector) {
-        float norm = 0.0f;
-        for (float v : vector) {
+        var norm = 0.0f;
+        for (var v : vector) {
             norm += v * v;
         }
         norm = (float) Math.sqrt(norm);
@@ -48,7 +48,7 @@ public class MockEmbeddingService implements EmbeddingService {
             return vector;
         }
 
-        for (int i = 0; i < vector.length; i++) {
+        for (var i = 0; i < vector.length; i++) {
             vector[i] = vector[i] / norm;
         }
 

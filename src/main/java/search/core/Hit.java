@@ -1,6 +1,6 @@
 package search.core;
 
-public record EmailSearchResult(
+public record Hit(
     String messageId,
     String fromEmail,
     String fromName,

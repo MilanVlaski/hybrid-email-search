@@ -10,7 +10,7 @@ import org.apache.lucene.store.MMapDirectory;
 
 import search.adapters.*;
 import search.core.Email;
-import search.core.EmbeddingService;
+import search.core.Embedder;
 
 import java.nio.file.Paths;
 import java.sql.*;
@@ -28,18 +28,18 @@ public class IndexEmailsAction {
             System.exit(1);
         }
 
-        String dbPath = args[0];
-        String indexDir = args[1];
+        var dbPath = args[0];
+        var indexDir = args[1];
 
         try {
-            // Use MockEmbeddingService for MVP - replace with OnnxEmbeddingService for production
-            EmbeddingService embeddingService = new OnnxEmbeddingService(
+            // Use MockEmbedder for MVP - replace with OnnxEmbedder for production
+            var embedder = new OnnxEmbedder(
                     "models/onnx/model.onnx",
                     "models/onnx/tokenizer.json"
             );
             
             // Build index
-            new IndexEmailsAction().indexEmails(dbPath, indexDir, embeddingService);
+            new IndexEmailsAction().indexEmails(dbPath, indexDir, embedder);
             
             System.out.println("Indexing completed successfully.");
         } catch (Exception e) {
@@ -49,29 +49,29 @@ public class IndexEmailsAction {
         }
     }
 
-    public void indexEmails(String dbPath, String indexDir, EmbeddingService embeddingService) throws Exception {
+    public void indexEmails(String dbPath, String indexDir, Embedder embedder) throws Exception {
         // Setup Lucene with int8 quantization and tuned HNSW parameters
-        int maxConn = 12;
-        int beamWidth = 60;
-        KnnVectorsFormat quantizedFormat = new Lucene99HnswScalarQuantizedVectorsFormat(maxConn, beamWidth);
+        var maxConn = 12;
+        var beamWidth = 60;
+        var quantizedFormat = new Lucene99HnswScalarQuantizedVectorsFormat(maxConn, beamWidth);
         
-        Codec customCodec = new Lucene99Codec() {
+        var customCodec = new Lucene99Codec() {
             @Override
             public KnnVectorsFormat getKnnVectorsFormatForField(String field) {
                 return quantizedFormat;
             }
         };
 
-        IndexWriterConfig config = new IndexWriterConfig();
+        var config = new IndexWriterConfig();
         config.setCodec(customCodec);
         
-        try (IndexWriter writer = new IndexWriter(
+        try (var writer = new IndexWriter(
             MMapDirectory.open(Paths.get(indexDir)), config);
-             Connection conn = DriverManager.getConnection("jdbc:sqlite:" + dbPath)) {
+             var conn = DriverManager.getConnection("jdbc:sqlite:" + dbPath)) {
 
-            Statement stmt = conn.createStatement();
-            ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM emails");
-            int totalEmails = rs.getInt(1);
+            var stmt = conn.createStatement();
+            var rs = stmt.executeQuery("SELECT COUNT(*) FROM emails");
+            var totalEmails = rs.getInt(1);
             rs.close();
             
             System.out.println("Total emails in database: " + totalEmails);
@@ -83,10 +83,10 @@ public class IndexEmailsAction {
                 "FROM emails LIMIT " + MAX_EMAILS_TO_INDEX
             );
 
-            int count = 0;
+            var count = 0;
             while (rs.next()) {
-                Email email = mapToEmail(rs);
-                Document doc = createDocument(email, embeddingService);
+                var email = mapToEmail(rs);
+                var doc = createDocument(email, embedder);
                 writer.addDocument(doc);
                 
                 count++;
@@ -113,8 +113,8 @@ public class IndexEmailsAction {
         );
     }
 
-    private Document createDocument(Email email, EmbeddingService embeddingService) {
-        Document doc = new Document();
+    private Document createDocument(Email email, Embedder embedder) {
+        var doc = new Document();
 
         // Store fields for retrieval
         doc.add(new StoredField("message_id", email.messageId() != null ? email.messageId() : ""));
@@ -129,15 +129,15 @@ public class IndexEmailsAction {
 
         // Indexed fields for search
         // 1. Vector embedding for semantic search
-        String subject = email.subject() != null ? email.subject() : "";
-        String body = email.bodyContent() != null ? email.bodyContent() : "";
-        String textToEmbed = subject + " " + body;
+        var subject = email.subject() != null ? email.subject() : "";
+        var body = email.bodyContent() != null ? email.bodyContent() : "";
+        var textToEmbed = subject + " " + body;
         if (textToEmbed.length() > 512) {
             textToEmbed = textToEmbed.substring(0, 512);
         }
         
         try {
-            float[] vector = embeddingService.embed("document: " + textToEmbed);
+            var vector = embedder.embed("document: " + textToEmbed);
             if (vector.length != VECTOR_DIMENSION) {
                 logger.warning("Vector dimension mismatch: expected " + VECTOR_DIMENSION + ", got " + vector.length);
             }
@@ -153,7 +153,7 @@ public class IndexEmailsAction {
         }
 
         // 3. Phone numbers (extract from body)
-        String phoneNumbers = extractPhoneNumbers(email.bodyContent());
+        var phoneNumbers = extractPhoneNumbers(email.bodyContent());
         if (!phoneNumbers.isEmpty()) {
             doc.add(new StringField("phone_num", phoneNumbers, Field.Store.YES));
         }
@@ -168,7 +168,7 @@ public class IndexEmailsAction {
 
     private String extractPhoneNumbers(String text) {
         if (text == null) return "";
-        String normalized = text.replaceAll("[^\\d]", "");
+        var normalized = text.replaceAll("[^\\d]", "");
         if (normalized.length() >= 7 && normalized.length() <= 15) {
             return normalized;
         }

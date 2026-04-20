@@ -1,9 +1,8 @@
 package search.usecases;
 
 import search.adapters.*;
-import search.core.EmailSearchResult;
-import search.core.EmbeddingService;
-import search.core.HybridSearchEngine;
+import search.core.Hit;
+import search.core.Embedder;
 
 public class SearchEmailsAction {
 
@@ -17,21 +16,21 @@ public class SearchEmailsAction {
             System.exit(1);
         }
 
-        String query = args[0].equals("-") ? "" : args[0];
-        String targetEmail = args[1].equals("-") ? "" : args[1];
-        String indexDir = args[2];
+        var query = args[0].equals("-") ? "" : args[0];
+        var targetEmail = args[1].equals("-") ? "" : args[1];
+        var indexDir = args[2];
 
-        EmbeddingService embeddingService = new OnnxEmbeddingService(
+        var embedder = new OnnxEmbedder(
                 "models/onnx/model.onnx",
                 "models/onnx/tokenizer.json"
         );
-        try (HybridSearchEngine searchEngine = new LuceneHybridSearchEngine(indexDir, embeddingService)) {
+        try (var search = new Search(indexDir, embedder)) {
             System.out.println("Performing hybrid search...");
             System.out.println("Query: " + query);
             System.out.println("Target email: " + (targetEmail.isEmpty() ? "(none)" : targetEmail));
             System.out.println("=".repeat(80));
 
-            EmailSearchResult[] results = searchEngine.performHybridSearch(query, targetEmail, 20);
+            var results = search.performHybridSearch(query, targetEmail, 20);
 
             if (results.length == 0) {
                 System.out.println("No results found.");
@@ -40,8 +39,8 @@ public class SearchEmailsAction {
 
             System.out.println("Found " + results.length + " results:\n");
             
-            for (int i = 0; i < results.length; i++) {
-                EmailSearchResult result = results[i];
+            for (var i = 0; i < results.length; i++) {
+                var result = results[i];
                 System.out.println("Result #" + (i + 1));
                 System.out.println("-".repeat(40));
                 System.out.println("From: " + result.fromName() + " <" + result.fromEmail() + ">");

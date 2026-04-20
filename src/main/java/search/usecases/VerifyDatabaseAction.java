@@ -7,17 +7,17 @@ import java.sql.Statement;
 
 public class VerifyDatabaseAction {
     public static void main(String[] args) throws Exception {
-        String dbPath = args.length > 0 ? args[0] : "emails.db";
-        String dbUrl = "jdbc:sqlite:" + dbPath;
-        try (Connection conn = DriverManager.getConnection(dbUrl);
-             Statement stmt = conn.createStatement()) {
+        var dbPath = args.length > 0 ? args[0] : "emails.db";
+        var dbUrl = "jdbc:sqlite:" + dbPath;
+        try (var conn = DriverManager.getConnection(dbUrl);
+             var stmt = conn.createStatement()) {
 
-            ResultSet rsCount = stmt.executeQuery("SELECT count(*) FROM emails");
+            var rsCount = stmt.executeQuery("SELECT count(*) FROM emails");
             System.out.println("Total emails in database: " + rsCount.getInt(1));
             rsCount.close();
 
             System.out.println("\nSample Records:");
-            ResultSet rs = stmt.executeQuery(
+            var rs = stmt.executeQuery(
                 "SELECT id, message_id, from_email, subject, " +
                 "length(body_content) as body_length FROM emails LIMIT 3"
             );

@@ -8,16 +8,16 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-public class EmailDatabase {
+public class Database {
 
     private final String dbUrl;
 
-    public EmailDatabase(String dbPath) {
+    public Database(String dbPath) {
         this.dbUrl = "jdbc:sqlite:" + dbPath;
     }
 
     public void initialize() {
-        try (Connection conn = DriverManager.getConnection(dbUrl); Statement stmt = conn.createStatement()) {
+        try (var conn = DriverManager.getConnection(dbUrl); var stmt = conn.createStatement()) {
 
             stmt.execute("""
                     CREATE TABLE IF NOT EXISTS emails 
@@ -32,16 +32,16 @@ public class EmailDatabase {
     }
 
     public void insertEmails(Iterable<Email> emails) {
-        String sql = """
+        var sql = """
                 INSERT INTO emails(message_id, from_email, from_name, all_recipients,
                                    subject, body_content, timestamp_ms, has_attachments, labels)
                 VALUES(?,?,?,?,?,?,?,?,?)""";
 
-        try (Connection conn = DriverManager.getConnection(dbUrl)) {
+        try (var conn = DriverManager.getConnection(dbUrl)) {
             conn.setAutoCommit(false);
-            int count = 0;
-            try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                for (Email email : emails) {
+            var count = 0;
+            try (var pstmt = conn.prepareStatement(sql)) {
+                for (var email : emails) {
                     pstmt.setString(1, email.messageId());
                     pstmt.setString(2, email.fromEmail());
                     pstmt.setString(3, email.fromName());

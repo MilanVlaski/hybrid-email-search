@@ -4,7 +4,7 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 
-import search.adapters.EmailDatabase;
+import search.adapters.Database;
 import search.core.Email;
 
 import java.io.FileReader;
@@ -20,16 +20,14 @@ public class LoadEmailsCsvAction {
             System.exit(1);
         }
 
-        String csvPath = args[0];
-        String dbPath = args[1];
+        var csvPath = args[0];
+        var dbPath = args[1];
 
-        EmailDatabase database = new EmailDatabase(dbPath);
+        var database = new Database(dbPath);
         database.initialize();
 
-        EmailParser parser = new EmailParser();
-
-        try (Reader reader = new FileReader(csvPath);
-             CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.builder()
+        try (var reader = new FileReader(csvPath);
+             var csvParser = new CSVParser(reader, CSVFormat.DEFAULT.builder()
                      .setHeader().setSkipHeaderRecord(true).build())) {
 
             Iterable<Email> emailIterable = () -> new Iterator<>() {
@@ -39,10 +37,10 @@ public class LoadEmailsCsvAction {
 
                 private void advance() {
                     if (recordIterator.hasNext() && readCount < 10000) {
-                        CSVRecord record = recordIterator.next();
-                        String rawMessage = record.get("message");
-                        String fileLabel = record.get("file");
-                        nextEmail = parser.parse(rawMessage, fileLabel);
+                        var record = recordIterator.next();
+                        var rawMessage = record.get("message");
+                        var fileLabel = record.get("file");
+                        nextEmail = Email.parse(rawMessage, fileLabel);
                         readCount++;
                     } else {
                         nextEmail = null;
@@ -60,7 +58,7 @@ public class LoadEmailsCsvAction {
 
                 @Override
                 public Email next() {
-                    Email current = nextEmail;
+                    var current = nextEmail;
                     advance();
                     return current;
                 }
