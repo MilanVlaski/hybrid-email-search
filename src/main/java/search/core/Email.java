@@ -30,7 +30,8 @@ public record Email(
 
     public static Email parse(String rawMessage, String labels) {
         if (rawMessage == null || rawMessage.isEmpty()) {
-            return new Email("", "", "", "", "", "", 0L, false, labels);
+            return new Email("", "", "", "",
+                    "", "", 0L, false, labels);
         }
 
         var lines = rawMessage.split("\\r?\\n");

@@ -40,6 +40,7 @@ public class SearchEmailsAction {
             System.out.println("Found " + results.length + " results:\n");
             
             for (var i = 0; i < results.length; i++) {
+                // TODO move to a tostring method or something
                 var result = results[i];
                 System.out.println("Result #" + (i + 1));
                 System.out.println("-".repeat(40));

@@ -8,8 +8,6 @@ The `OnnxEmbeddingService` requires two files:
 1. **ONNX Model** (`.onnx`) - The neural network model for generating embeddings
 2. **Tokenizer** (`.json`) - Converts text into token IDs for the model
 
-By default, the application uses `MockEmbeddingService` which generates deterministic vectors for testing. This guide helps you switch to real embeddings.
-
 ## Quick Start (Recommended Model: google/embeddinggemma-300m)
 
 The project is designed to work with the `google/embeddinggemma-300m` model, a 300M parameter embedding-optimized version of Google's Gemma. This model provides an excellent balance of quality and speed on CPU.
@@ -83,6 +81,8 @@ ls -lh models/onnx/
 python3 -c "import onnx; m = onnx.load('models/onnx/model.onnx'); print(f'Opset: {m.opset_import}')"
 ```
 
+## **YOU WILL FIND ONLY AI GIBBERISH BELOW**
+## **YOU WILL FIND ONLY AI GIBBERISH BELOW**
 ## **YOU WILL FIND ONLY AI GIBBERISH BELOW**
 
 ## Model Specifications
